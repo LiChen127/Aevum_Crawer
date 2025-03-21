@@ -1,15 +1,24 @@
-import { prisma } from './prisma.service';
+import { prisma } from './prisma.service.ts';
 import { Task } from '@prisma/client';
+import { QueueService } from './queue.service.ts';
 
-export class TaskService {
-  async createTask(url: string, priority: number = 0): Promise<Task> {
-    return prisma.task.create({
+class TaskService {
+  private queueService: QueueService;
+
+  constructor() {
+    this.queueService = new QueueService();
+  }
+
+  async createTask(url: string, priority: number = 0, isDynamic: boolean = false): Promise<Task> {
+    const tasks = await prisma.task.create({
       data: {
         url,
         priority,
         status: 'pending'
       }
     });
+    await this.queueService.addTask(tasks.id, url, isDynamic);
+    return tasks;
   }
 
   async updateTaskStatus(id: number, status: string, error?: string): Promise<Task> {
@@ -34,3 +43,5 @@ export class TaskService {
     await this.updateTaskStatus(taskId, 'completed');
   }
 }
+
+export default new TaskService();

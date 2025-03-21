@@ -2,8 +2,9 @@
 	"name": "Aevum_Crawler",
 	"version": "1.0.0",
 	"description": "Aevum_Crwaler",
+	"type": "module",
 	"scripts": {
-		"dev": "ts-node src/app.ts",
+		"dev": "tsx watch src/app.ts",
 		"build": "tsc",
 		"start": "node dist/app.js"
 	},
@@ -15,6 +16,7 @@
 		"globals": "^16.0.0",
 		"prisma": "^6.5.0",
 		"ts-node": "^10.9.2",
+		"tsx": "^4.19.3",
 		"typescript": "^5.8.2",
 		"typescript-eslint": "^8.27.0"
 	},

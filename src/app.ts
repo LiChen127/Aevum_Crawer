@@ -1,14 +1,11 @@
 import express from "express";
-import { TaskService } from './services/task.service';
-import { prisma } from "./services/prisma.service";
-
-// import { createBullBoard } from "@b"
+import { prisma } from "./services/prisma.service.ts";
+import taskService from "./services/task.service.ts";
 
 const app = express();
 
 const PORT = process.env.PORT || 3000;
 
-const taskService = new TaskService();
 
 app.use(express.json());
 
@@ -26,6 +23,37 @@ app.post('/tasks', async (req, res) => {
     res.status(500).json({ error: (error as any).message });
   }
 });
+
+
+// 获取所有任务
+app.get('/tasks', async (req, res) => {
+  try {
+    const tasks = await prisma.task.findMany({
+      include: { result: true }
+    });
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ error: (error as any).message });
+  }
+});
+
+// // 重试失败的任务
+// app.post('/tasks/:id/retry', async (req, res) => {
+//   // try {
+//   //   const taskId = parseInt(req.params.id);
+//   //   const task = await prisma.task.findUnique({
+//   //     where: { id: taskId }
+//   //   });
+
+//   //   if (!task) {
+//   //     return res.status(404).json({ error: '任务不存在' });
+//   //   }
+//   //   await taskService.createTask(task.url, task.priority);
+//   //   res.json({ message: '任务已重新加入队列' });
+//   // } catch (error) {
+//   //   res.status(500).json({ error: (error as any).message });
+//   // }
+// });
 
 // 获取任务状态
 app.get('/tasks/:id', async (req, res) => {
