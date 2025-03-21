@@ -1,0 +1,36 @@
+{
+	"name": "Aevum_Crwaler",
+	"version": "1.0.0",
+	"description": "Aevum_Crwaler",
+	"scripts": {
+		"dev": "ts-node src/app.ts",
+		"build": "tsc",
+		"start": "node dist/app.js"
+	},
+	"devDependencies": {
+		"@eslint/js": "^9.22.0",
+		"@prisma/client": "^6.5.0",
+		"@types/node": "^22.13.10",
+		"eslint": "^9.22.0",
+		"globals": "^16.0.0",
+		"prisma": "^6.5.0",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.8.2",
+		"typescript-eslint": "^8.27.0"
+	},
+	"dependencies": {
+		"@types/bull": "^4.10.4",
+		"@types/express": "^5.0.1",
+		"@types/lodash": "^4.17.16",
+		"axios": "^1.8.4",
+		"bull": "^4.16.5",
+		"cheerio": "^1.0.0",
+		"dayjs": "^1.11.13",
+		"express": "^4.21.2",
+		"lodash": "^4.17.21",
+		"p-limit": "^6.2.0",
+		"puppeteer": "^24.4.0",
+		"redis": "^4.7.0",
+		"winston": "^3.17.0"
+	}
+}
