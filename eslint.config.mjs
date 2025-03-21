@@ -18,6 +18,8 @@ export default [
       "no-unused-labels": "off",
       "no-unreachable": "off",
       "semi": ["warn", "always"],
+      // 不对any进行类型检查
+      "@typescript-eslint/no-explicit-any": "off",
     }
   }
 ];

@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 爬虫任务模型
+model Task {
+  id        Int     @id @default(autoincrement())
+  url String
+  status String @default("pending") // "pending" | "running" | completed | "failed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  retryCount Int @default(0)
+  result Result?
+  error String?
+  priority Int @default(0) // 优先级，越大越优先
+}
+
+// 爬取结果模型
+model Result {
+  id        Int      @id @default(autoincrement())
+  taskId    Int      @unique
+  task      Task     @relation(fields: [taskId], references: [id])
+  data      Json
+  createdAt DateTime @default(now())
+}
+
+// 代理IP模型
+model Proxy {
+  id        Int      @id @default(autoincrement())
+  ip        String
+  port      Int
+  protocol  String
+  isActive  Boolean  @default(true)
+  lastCheck DateTime @default(now())
+  failCount Int      @default(0)
+}
