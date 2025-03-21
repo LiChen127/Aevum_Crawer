@@ -8,8 +8,15 @@ class TaskService {
   constructor() {
     this.queueService = new QueueService();
   }
-
+  /**
+   * 创建一个爬虫任务
+   * @param url 目标url
+   * @param priority 优先级
+   * @param isDynamic 是否动态爬取
+   * @returns 
+   */
   async createTask(url: string, priority: number = 0, isDynamic: boolean = false): Promise<Task> {
+    // 首先在db中创建一个任务
     const tasks = await prisma.task.create({
       data: {
         url,
@@ -17,6 +24,7 @@ class TaskService {
         status: 'pending'
       }
     });
+    // 然后开启队列服务，将任务添加到队列中
     await this.queueService.addTask(tasks.id, url, isDynamic);
     return tasks;
   }
@@ -42,6 +50,18 @@ class TaskService {
 
     await this.updateTaskStatus(taskId, 'completed');
   }
+
+  // async createPagesTask(url: string, priority: number = 0, isDynamic: boolean = false): Promise<Task> {
+  //   const tasks = await prisma.task.create({
+  //     data: {
+  //       url,
+  //       priority,
+  //       status: 'pending'
+  //     }
+  //   });
+  //   // await this.queueService.addw(tasks.id, url, isDynamic);
+  //   return tasks;
+  // }
 }
 
 export default new TaskService();

@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "./services/prisma.service.ts";
 import taskService from "./services/task.service.ts";
+// import queueService from "./services/queue.service.ts";
 
 const app = express();
 
@@ -18,6 +19,17 @@ app.post('/tasks', async (req, res) => {
   try {
     const { url, priority } = req.body;
     const task = await taskService.createTask(url, priority);
+    res.json(task);
+  } catch (error) {
+    res.status(500).json({ error: (error as any).message });
+  }
+});
+
+// 动态爬取
+app.post("/dynamic-tasks", async (req, res) => {
+  try {
+    const { url, priority } = req.body;
+    const task = await taskService.createTask(url, priority, true);
     res.json(task);
   } catch (error) {
     res.status(500).json({ error: (error as any).message });
@@ -63,6 +75,18 @@ app.get('/tasks/:id', async (req, res) => {
       include: { result: true }
     });
     res.json(task);
+  } catch (error) {
+    res.status(500).json({ error: (error as any).message });
+  }
+});
+
+// 启动网站爬虫
+app.post('/crawl-website', async (req, res) => {
+  try {
+    const { startPage = 1 } = req.body;
+    // await queueService.addWebsiteCrawlerTask(startPage);
+    await taskService.createTask(`https://www.example.com/page/${startPage}`, 0, true);
+    res.json({ message: 'Website crawler started' });
   } catch (error) {
     res.status(500).json({ error: (error as any).message });
   }
