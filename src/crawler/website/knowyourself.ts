@@ -1,10 +1,36 @@
 // Knowyourself website crawler
 import * as cheerio from "cheerio";
 import puppeteer from "puppeteer";
+import tagService from '../../storages/knowyourself/tag.ts';
+import contentService from '../../storages/knowyourself/content.ts';
 
 class KnowyourselfCrawler {
+  private url = "https://www.knowyourself.cc/";
+  // 解析knowyourself的内容标签
+  public async crawlerTags(): Promise<any> {
+    const browser = await puppeteer.launch({
+      headless: false,
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    });
+    const page = await browser.newPage();
+    try {
+      await page.goto(this.url, {
+        waitUntil: "networkidle0",
+      });
+      const html = await page.evaluate(() => {
+        return document.documentElement.outerHTML;;
+      });
+      const result = await this.parseContentToGetTags(html);
+      await tagService.batchCreateTag(result);
+      return result;
+    } catch (error) {
+      console.log("Error: \n", error);
+    } finally {
+      await browser.close();
+    }
+  }
   // 解析该网站的内容标签
-  public async parseContentToGetTags(html: string): Promise<any> {
+  private async parseContentToGetTags(html: string): Promise<any> {
     const $ = cheerio.load(html);
     const tags: string[] = [];
     $('nav').find('h2').each((index, element) => {
@@ -12,7 +38,6 @@ class KnowyourselfCrawler {
     });
     return tags;
   }
-
   // 获取文章列表的标题+链接
   public async parseListPage(html: string): Promise<{
     title: string;
@@ -29,7 +54,84 @@ class KnowyourselfCrawler {
     });
     return result;
   }
+  public async crawListPageNew(): Promise<any> {
+    const browser = await puppeteer.launch({
+      headless: false,
+    });
+    const page = await browser.newPage();
+    const result: any[] = [];
 
+    try {
+      // 访问初始页面
+      await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
+        waitUntil: 'networkidle2',
+      });
+      // 递归处理分页
+      const processPagination = async (currentPage: number) => {
+        console.log(`Processing page: ${currentPage}`);
+        // 等待页面稳定
+        await page.waitForSelector('.ant-pagination-item', { visible: true });
+        // 处理当前页内容
+        const html = await page.content();
+        const list = await this.parseListPage(html);
+        // 并行处理详情页（控制并发量）
+        await Promise.all(list.map(async (item) => {
+          const detailPage = await browser.newPage();
+          try {
+            await detailPage.goto(`https://www.knowyourself.cc${item.link}`, {
+              waitUntil: 'domcontentloaded',
+              timeout: 30000
+            });
+            // 添加重试机制
+            let retries = 3;
+            while (retries > 0) {
+              try {
+                const detailHtml = await detailPage.content();
+                const detail = await this.parseDetail(detailHtml);
+                await contentService.createContent(detail);
+                console.log('保存成功');
+                return; // 成功则退出循环
+              } catch (parseError) {
+                retries--;
+                if (retries === 0) throw parseError;
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
+          } finally {
+            await detailPage.close();
+          }
+        }));
+        // 处理下一页
+        const nextPage = await page.$('.ant-pagination-item:not(.ant-pagination-item-active)');
+        if (nextPage && currentPage < 3) {
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle0', timeout: 60000 }),
+            nextPage.click()
+          ]);
+
+          await processPagination(currentPage + 1); // 递归处理下一页
+        }
+      };
+
+      await processPagination(1);
+    } catch (error) {
+      console.error('爬取过程中发生错误:', error);
+    } finally {
+      // 优雅关闭浏览器
+      try {
+        await browser.close();
+        console.log('浏览器已正常关闭');
+      } catch (closeError) {
+        console.error('关闭浏览器时发生错误:', closeError);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * 分页获取文章detail
+   * @returns 
+   */
   public async crawListPage(): Promise<any> {
     const browser = await puppeteer.launch({
       headless: false,
@@ -63,13 +165,20 @@ class KnowyourselfCrawler {
         result.push({
           ...detail,
         });
-        // 关一下页面
-        await detailPage.close();
+        // 存到db
+        const res = await contentService.createContent({
+          ...detail,
+        });
+        if (res != null) {
+          console.log('保存成功');
+          // 关一下页面
+          await detailPage.close();
+        }
       });
       // 爬取下一页
       let nextPage = await page.$('.ant-pagination-item:not(.ant-pagination-item-active)');
       let currentPage = 2;
-      while (nextPage) {
+      while (nextPage && currentPage <= 10) {
         console.log(`Clicking next page: ${currentPage}`);
         await new Promise(resolve => setTimeout(resolve, 50));
         await Promise.all([
@@ -94,115 +203,24 @@ class KnowyourselfCrawler {
           result.push({
             ...detail,
           });
-          await detailPage.close();
+          const res = await contentService.createContent({
+            ...detail,
+          });
+          if (res != null) {
+            console.log('保存成功');
+            await detailPage.close();
+          }
         });
         nextPage = await page.$(`.ant-pagination-item-${currentPage + 1}`);
         currentPage++;
       }
-      await page.close();
-      return result;
     } catch (error) {
       console.log(error);
     } finally {
       await browser.close();
     }
-  }
-  // 爬取动态分页内容 利用puppeteer
-  public async crawlList(): Promise<any> {
-    const browser = await puppeteer.launch({
-      headless: false, // 调试时可保持可见
-    });
-    const page = await browser.newPage();
-    const result: any[] = [];
-    try {
-      // 初始访问列表页
-      await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
-        waitUntil: 'networkidle2',
-      });
-
-      await page.evaluate(() => {
-        window.scrollBy(0, window.innerHeight);
-      });
-      await page.waitForSelector('body', { visible: true });
-      let currentPage = 1;
-      const maxRetries = 3;
-      while (currentPage <= 3) { // 安全限制页数
-        // 处理当前页内容
-        const html = await page.content();
-        const list = await this.parseList(html);
-        // 处理详情页（优化并行处理）
-        const detailPromises = list.map(async (item) => {
-          const detailPage = await browser.newPage();
-          try {
-            await detailPage.goto(`https://www.knowyourself.cc${item.link}`, {
-              waitUntil: 'networkidle2',
-            });
-
-            // 滚动加载可能的内容
-            await detailPage.evaluate(async () => {
-              await new Promise(resolve => {
-                let totalHeight = 0;
-                const scrollStep = 100;
-                const timer = setInterval(() => {
-                  const scrollHeight = document.body.scrollHeight;
-                  window.scrollBy(0, scrollStep);
-                  totalHeight += scrollStep;
-                  if (totalHeight >= scrollHeight) {
-                    clearInterval(timer);
-                    resolve(null);
-                  }
-                }, 100);
-              });
-            });
-            const detail = await this.parseDetail(await detailPage.content());
-            return detail;
-          } finally {
-            await detailPage.close();
-          }
-        });
-        const details = await Promise.all(detailPromises);
-        result.push(...details.filter(d => d.content));
-        const nextPageSelector = `.ant-pagination-item-${currentPage + 1}`;
-        const curpageNextBtn = await page.$(nextPageSelector);
-        if (curpageNextBtn == null) {
-          console.log('No next page btn found, stopping...');
-          break;
-        }
-        // 可靠点击方式
-        let retry = 0;
-        while (retry < maxRetries) {
-          try {
-            await Promise.all([
-              curpageNextBtn.click(),
-              page.waitForNavigation({
-                waitUntil: 'domcontentloaded',
-                timeout: 60000
-              }),
-              page.waitForSelector(".card-item", { visible: true })
-            ]);
-            currentPage++;
-            break;
-          } catch (err) {
-            console.log(`Retry ${retry + 1}/3`);
-            console.log(err);
-            await new Promise(resolve => setTimeout(resolve, 3000));
-            retry++;
-          }
-        }
-        if (retry >= maxRetries) {
-          console.log('Max retries reached, stopping');
-          break;
-        }
-        // 随机化操作间隔
-        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
-      }
-    } finally {
-      await browser.close();
-    }
-
     return result;
   }
-
   // 解析list页面的内容
   public async parseList(html: string) {
     const $ = cheerio.load(html);
@@ -216,7 +234,6 @@ class KnowyourselfCrawler {
     });
     return result;
   }
-
   // 解析detail
   private async parseDetail(html: string) {
     const $ = cheerio.load(html);
@@ -225,7 +242,6 @@ class KnowyourselfCrawler {
       content: $('.card-left-content-detail').text(),
     };
   }
-
 }
 
 export default new KnowyourselfCrawler();

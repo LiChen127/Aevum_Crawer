@@ -3,31 +3,40 @@ import { prisma } from "../../services/prisma.service.ts";
 interface Content {
   title: string;
   content: string;
-  typeId: number;
 }
 
 class ContentService {
   async getContent(id: string): Promise<any> {
     const idByProcessed = BigInt(id);
-    return prisma.knowyourselfContent.findFirst({
+    const result = await prisma.knowyourselfContent.findFirst({
       where: {
         id: idByProcessed,
       }
     });
+    result!.content = JSON.parse(result?.content as string);
+    return result;
   }
 
   async createContent(params: Content): Promise<any> {
     return prisma.knowyourselfContent.create({
       data: {
         title: params.title,
-        content: params.content,
-        typeId: params.typeId,
+        content: JSON.stringify(params.content),
       }
     });
   }
-
   async getAll(): Promise<any> {
-    return prisma.knowyourselfContent.findMany();
+    const list = await prisma.knowyourselfContent.findMany();
+    return list;
+  }
+
+  async batchCreateContent(content: Content[]): Promise<any> {
+    return prisma.knowyourselfContent.createMany({
+      data: content.map(item => ({
+        title: item.title,
+        content: JSON.stringify(item.content),
+      })),
+    });
   }
 }
 

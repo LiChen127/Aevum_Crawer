@@ -52,14 +52,11 @@ model KnowyourselfType {
   id        Int      @id @default(autoincrement())
   text String
   createdAt DateTime @default(now())
-  contents KnowyourselfContent[]
 }
 
 model KnowyourselfContent {
   id BigInt  @id @default(autoincrement())
-  typeId Int
-  type KnowyourselfType @relation(fields: [typeId], references: [id])
   title String
-  content String
+  content Json
   createAt DateTime @default(now())
 }
