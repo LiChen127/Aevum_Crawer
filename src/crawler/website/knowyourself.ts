@@ -3,7 +3,6 @@ import * as cheerio from "cheerio";
 import puppeteer from "puppeteer";
 
 class KnowyourselfCrawler {
-
   // 解析该网站的内容标签
   public async parseContentToGetTags(html: string): Promise<any> {
     const $ = cheerio.load(html);
@@ -108,36 +107,6 @@ class KnowyourselfCrawler {
       await browser.close();
     }
   }
-
-  /**list page parse */
-
-  // // 根据link爬取所有的detail
-  // public async parseAllDetailPageByLink(links: string[]): Promise<any> {
-  //   console.log("111111");
-  //   const browser = await puppeteer.launch({
-  //     headless: false,
-  //   });
-  //   const page = await browser.newPage();
-  //   const result: any[] = [];
-  //   try {
-  //     for (let i = 0; i < links.length; i++) {
-  //       await page.goto(`https://www.knowyourself.cc${links[i]}`, {
-  //         waitUntil: 'networkidle0',
-  //       });
-  //       const html = await page.evaluate(() => {
-  //         return document.documentElement.outerHTML;
-  //       });
-  //       const detail = await this.parseDetail(html);
-  //       const res = { ...detail, index: i };
-  //       result.push(res);
-  //     }
-  //     return result;
-  //   } catch (error) {
-  //     console.error(error);
-  //   } finally {
-  //     await browser.close();
-  //   }
-  // }
   // 爬取动态分页内容 利用puppeteer
   public async crawlList(): Promise<any> {
     const browser = await puppeteer.launch({
