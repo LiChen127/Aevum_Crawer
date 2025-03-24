@@ -6,7 +6,7 @@ const PORT = "3000";
 const app = express();
 
 app.get("/kys/list", async (req, res) => {
-  const list = await konwyourselfCrawler.crawlList();
+  const list = await konwyourselfCrawler.crawListPage();
   res.send(list);
 });
 
