@@ -1,6 +1,4 @@
 // Knowyourself website crawler
-// import axios from "axios";
-// import { CrawlerConfig } from "../../types/crawler.interface.ts";
 import * as cheerio from "cheerio";
 import puppeteer from "puppeteer";
 
@@ -34,7 +32,6 @@ class KnowyourselfCrawler {
     const browser = await puppeteer.launch({
       headless: false,
     });
-
     const page = await browser.newPage();
     const result: any[] = [];
     try {
@@ -42,25 +39,19 @@ class KnowyourselfCrawler {
       page.on('response', async (response) => {
         if (response.url().includes('getWebsiteArticleList') && response.status() === 200) {
           const data = await response.json();
-          console.log('data.data', data.data);
-          result.push(...data.data.list); // 假设响应中的数据在 data 字段
-          console.log('Data loaded:', data.data);
+          result.push(...data.data.list);
         }
       });
-
       // 访问初始页面
       await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
         waitUntil: 'networkidle2',
       });
-
       // 爬取第一页
       await page.waitForSelector('.ant-pagination-item', { visible: true });
-
       // 爬取下一页
       let nextPage = await page.$('.ant-pagination-item:not(.ant-pagination-item-active)');
       let currentPage = 2;
       console.log(result, "result");
-
       while (nextPage) {
         console.log(`Clicking next page: ${currentPage}`);
         await Promise.all([
