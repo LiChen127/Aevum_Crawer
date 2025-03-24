@@ -178,18 +178,18 @@ class KnowyourselfCrawler {
       // 爬取下一页
       let nextPage = await page.$('.ant-pagination-item:not(.ant-pagination-item-active)');
       let currentPage = 2;
-      while (nextPage && currentPage <= 10) {
+      while (nextPage && currentPage <= 2) {
         console.log(`Clicking next page: ${currentPage}`);
         await new Promise(resolve => setTimeout(resolve, 50));
         await Promise.all([
           nextPage.click(),
+          page.waitForSelector('.ant-pagination-item-active'),
         ]);
-        await page.waitForSelector('.ant-pagination-item-active');
         const html = await page.evaluate(() => {
           return document.documentElement.outerHTML;
         });
         const list = await this.parseListPage(html);
-        list.map(async (item) => {
+        await Promise.all(list.map(async (item) => {
           const detailLink = item.link;
           // 开启新的页面
           const detailPage = await browser.newPage();
@@ -210,14 +210,19 @@ class KnowyourselfCrawler {
             console.log('保存成功');
             await detailPage.close();
           }
-        });
+        }));
         nextPage = await page.$(`.ant-pagination-item-${currentPage + 1}`);
         currentPage++;
       }
+      console.log('爬取完成', result);
     } catch (error) {
       console.log(error);
     } finally {
-      await browser.close();
+      try {
+        await browser.close();
+      } catch (error) {
+        console.log(error);
+      }
     }
     return result;
   }

@@ -6,28 +6,22 @@ interface Content {
 }
 
 class ContentService {
-  async getContent(id: string): Promise<any> {
-    const idByProcessed = BigInt(id);
-    const result = await prisma.knowyourselfContent.findFirst({
-      where: {
-        id: idByProcessed,
-      }
-    });
-    result!.content = JSON.parse(result?.content as string);
-    return result;
-  }
-
   async createContent(params: Content): Promise<any> {
     return prisma.knowyourselfContent.create({
       data: {
         title: params.title,
-        content: JSON.stringify(params.content),
+        content: params.content,
       }
     });
   }
+
   async getAll(): Promise<any> {
     const list = await prisma.knowyourselfContent.findMany();
-    return list;
+    // 转换列表中的 BigInt 为字符串
+    return list.map(item => ({
+      ...item,
+      id: item.id.toString(),
+    }));
   }
 
   async batchCreateContent(content: Content[]): Promise<any> {

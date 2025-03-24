@@ -8,11 +8,11 @@ const PORT = "3000";
 const app = express();
 
 app.post("/kys/list", async (req, res) => {
-  const list = await konwyourselfCrawler.crawListPageNew();
+  const list = await konwyourselfCrawler.crawListPage();
   res.json(list);
 });
 
-app.get("/kys/content", async (req, res) => {
+app.get("/kys/list", async (req, res) => {
   const list = await contentService.getAll();
   res.json(list);
 });
