@@ -60,3 +60,16 @@ model KnowyourselfContent {
   content Json
   createAt DateTime @default(now())
 }
+// yixinli 标签
+model YxlTag {
+  id Int @id @default(autoincrement())
+  text String
+  createdAt DateTime @default(now())
+}
+// yixinli 文章内容
+model YxlArticleContent {
+  id BigInt  @id @default(autoincrement())
+  title String
+  content Json
+  createAt DateTime @default(now())
+}

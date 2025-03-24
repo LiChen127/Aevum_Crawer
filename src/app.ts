@@ -2,6 +2,7 @@ import express from "express";
 import konwyourselfCrawler from "./crawler/website/knowyourself.ts";
 import tagService from "./storages/knowyourself/tag.ts";
 import contentService from "./storages/knowyourself/content.ts";
+import yixinli from "./crawler/website/yixinli.ts";
 
 const PORT = "3000";
 
@@ -29,6 +30,11 @@ app.get("/kys/tags", async (req, res) => {
     index === self.findIndex(t => t.text === tag.text)
   );
   res.json(uniqueTags);
+});
+
+app.get('/yxl/tags', async (req, res) => {
+  const tags = await yixinli.crawAllTags();
+  res.json(tags);
 });
 
 app.listen(PORT, () => {
