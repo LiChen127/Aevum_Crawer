@@ -7,7 +7,7 @@ const app = express();
 
 app.get("/kys/list", async (req, res) => {
   const list = await konwyourselfCrawler.crawListPage();
-  res.send(list);
+  res.json(list);
 });
 
 app.listen(PORT, () => {
