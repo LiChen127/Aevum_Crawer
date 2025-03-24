@@ -26,6 +26,10 @@ app.post("/kys/list", async (req, res) => {
   res.json(list);
 });
 
+app.get("/pages", async (req, res) => {
+  res.json(await knowyourselfCrawler.testClickNextPage());
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });

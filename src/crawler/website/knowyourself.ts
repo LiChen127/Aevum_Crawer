@@ -93,7 +93,12 @@ class KnowyourselfCrawler {
 
     try {
       // 初始访问列表页
-      await page.goto('https://www.knowyourself.cc/list', {
+      // await page.goto('https://www.knowyourself.cc/list', {
+      //   waitUntil: 'domcontentloaded',
+      //   timeout: 60000
+      // });
+      // https://www.knowyourself.cc/list?id=hunlianqinggan
+      await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
         waitUntil: 'domcontentloaded',
         timeout: 60000
       });
@@ -101,7 +106,7 @@ class KnowyourselfCrawler {
       let currentPage = 1;
       const maxRetries = 3;
 
-      while (currentPage <= 10) { // 安全限制页数
+      while (currentPage <= 3) { // 安全限制页数
         // 处理当前页内容
         const list = await this.parseList(await page.content());
         console.log(`[Page ${currentPage}] Found ${list.length} articles`);
@@ -145,9 +150,14 @@ class KnowyourselfCrawler {
         // 分页处理（可靠方式）
         // const nextButton = await page.$('.ant-pagination-next:not(.ant-pagination-disabled)');
         // if (!nextButton) break;
+        // class="ant-pagination-item ant-pagination-item-2"
         const nextPageSelector = `.ant-pagination-item-${currentPage + 1}`;
         // const nextOtherSelector = `.Next 5 Pages`;
-        const nextPageBtn = await page.$(nextPageSelector);
+        // const res = await page.waitForSelector(nextPageSelector, { visible: true });
+        // debugger;
+        // console.log(res);
+        const nextPageBtn = await page.waitForSelector(nextPageSelector, { visible: true });
+
         // const nextOtherBtn = await page.$(nextOtherSelector);
         if (!nextPageBtn) {
           console.log('No more pages, stopping');
@@ -213,6 +223,58 @@ class KnowyourselfCrawler {
       title: $('.card-left-content-title').text(),
       content: $('.card-left-content-detail').text(),
     };
+  }
+
+  // 测试点击下一页
+  public async testClickNextPage() {
+    const browser = await puppeteer.launch({
+      executablePath: `D:\\daily_soft\\Google\\Chrome\\Application\\chrome.exe`,
+      headless: false, // 调试时可保持可见
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--window-size=1920,1080'
+      ]
+    });
+
+    const page = await browser.newPage();
+    // const result: any[] = [];
+
+    // 设置浏览器指纹
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.evaluateOnNewDocument(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => false });
+    });
+
+    // 优化资源拦截
+    await page.setRequestInterception(true);
+    page.on('request', (req) => {
+      if (req.resourceType() === 'document') {
+        req.continue();
+      } else {
+        req.abort();
+      }
+    });
+
+    // 获取分页按钮dom
+    const selector = `.section1-pagination`;
+    try {
+      await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000
+      });
+      while (true) {
+        const nextPageBtn = await page.$(selector);
+        console.log(nextPageBtn);
+        if (!nextPageBtn) {
+          console.log('No more pages, stopping');
+          break;
+        }
+      }
+    } catch (error) {
+      console.log(error);
+    } finally {
+      await browser.close();
+    }
   }
 }
 
