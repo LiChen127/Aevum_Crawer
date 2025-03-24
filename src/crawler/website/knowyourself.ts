@@ -1,28 +1,16 @@
 // Knowyourself website crawler
-import axios from "axios";
+// import axios from "axios";
 import { CrawlerConfig } from "../../types/crawler.interface.ts";
 import * as cheerio from "cheerio";
-import ApiCrawler from "../utils/ApiCrawler.ts";
 import puppeteer from "puppeteer";
 
 class KnowyourselfCrawler {
+
   private config: CrawlerConfig;
 
-  private apiCrawler: ApiCrawler;
   constructor(config: CrawlerConfig) {
     this.config = config;
-    this.apiCrawler = new ApiCrawler();
   }
-
-  // 爬取静态页面
-  public async crawlStatic(url: string): Promise<string> {
-    const response = await axios.get(url, {
-      headers: this.config.headers,
-      timeout: this.config.timeout,
-    });
-    return response.data;
-  }
-
   // 解析该网站的内容标签
   public async parseContentToGetTags(html: string): Promise<any> {
     const $ = cheerio.load(html);
@@ -51,16 +39,6 @@ class KnowyourselfCrawler {
     return result;
   }
 
-  // 爬取动态分页内容
-  public async crawlDynamic(): Promise<any> {
-    const res = await this.apiCrawler.crawlApi();
-    if (res != null) {
-      return res;
-    } else {
-      return null;
-    }
-  }
-
   // 爬取动态分页内容 利用puppeteer
   public async crawlList(): Promise<any> {
     const browser = await puppeteer.launch({
@@ -71,16 +49,14 @@ class KnowyourselfCrawler {
         '--window-size=1920,1080'
       ]
     });
-
-    const page = await browser.newPage();
+    // 创建新页面
+    const page = (await browser.newPage());
     const result: any[] = [];
-
     // 设置浏览器指纹
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
     await page.evaluateOnNewDocument(() => {
       Object.defineProperty(navigator, 'webdriver', { get: () => false });
     });
-
     // 优化资源拦截
     await page.setRequestInterception(true);
     page.on('request', (req) => {
@@ -90,36 +66,28 @@ class KnowyourselfCrawler {
         req.abort();
       }
     });
-
     try {
       // 初始访问列表页
-      // await page.goto('https://www.knowyourself.cc/list', {
-      //   waitUntil: 'domcontentloaded',
-      //   timeout: 60000
-      // });
-      // https://www.knowyourself.cc/list?id=hunlianqinggan
       await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
-        waitUntil: 'domcontentloaded',
+        waitUntil: 'networkidle0',
         timeout: 60000
       });
-
       let currentPage = 1;
       const maxRetries = 3;
-
       while (currentPage <= 3) { // 安全限制页数
+        let curpageNextBtn: HTMLElement | null = null;
         // 处理当前页内容
         const list = await this.parseList(await page.content());
         console.log(`[Page ${currentPage}] Found ${list.length} articles`);
-
         // 处理详情页（优化并行处理）
         const detailPromises = list.map(async (item) => {
           const detailPage = await browser.newPage();
+          curpageNextBtn = document.querySelector(`.ant-pagination-item-${currentPage + 1}`);
           try {
             await detailPage.goto(`https://www.knowyourself.cc${item.link}`, {
-              waitUntil: 'domcontentloaded',
+              waitUntil: 'networkidle0',
               timeout: 30000
             });
-
             // 滚动加载可能的内容
             await detailPage.evaluate(async () => {
               await new Promise(resolve => {
@@ -136,41 +104,33 @@ class KnowyourselfCrawler {
                 }, 100);
               });
             });
-
             const detail = await this.parseDetail(await detailPage.content());
             return detail;
           } finally {
             await detailPage.close();
           }
         });
-
         const details = await Promise.all(detailPromises);
         result.push(...details.filter(d => d.content));
+        // // 模拟真正的点击事件
+        console.log(curpageNextBtn, "btn");
+        const handleClick = async () => {
+          if (curpageNextBtn) {
+            (curpageNextBtn as HTMLElement)?.dispatchEvent(new MouseEvent("click", {
+              bubbles: true,
+              cancelable: true,
+              view: window
+            }));
+          }
 
-        // 分页处理（可靠方式）
-        // const nextButton = await page.$('.ant-pagination-next:not(.ant-pagination-disabled)');
-        // if (!nextButton) break;
-        // class="ant-pagination-item ant-pagination-item-2"
-        const nextPageSelector = `.ant-pagination-item-${currentPage + 1}`;
-        // const nextOtherSelector = `.Next 5 Pages`;
-        // const res = await page.waitForSelector(nextPageSelector, { visible: true });
-        // debugger;
-        // console.log(res);
-        const nextPageBtn = await page.waitForSelector(nextPageSelector, { visible: true });
-
-        // const nextOtherBtn = await page.$(nextOtherSelector);
-        if (!nextPageBtn) {
-          console.log('No more pages, stopping');
-          break;
-        }
-
+        };
         // 可靠点击方式
         let retry = 0;
         while (retry < maxRetries) {
           try {
-            console.log(nextPageBtn);
+            // console.log(nextPageBtn);
             await Promise.all([
-              nextPageBtn.click(),
+              handleClick(),
               page.waitForNavigation({
                 waitUntil: 'domcontentloaded',
                 timeout: 60000
@@ -185,19 +145,16 @@ class KnowyourselfCrawler {
             retry++;
           }
         }
-
         if (retry >= maxRetries) {
           console.log('Max retries reached, stopping');
           break;
         }
-
         // 随机化操作间隔
         await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
       }
     } finally {
       await browser.close();
     }
-
     return result;
   }
 
@@ -225,57 +182,15 @@ class KnowyourselfCrawler {
     };
   }
 
-  // 测试点击下一页
-  public async testClickNextPage() {
-    const browser = await puppeteer.launch({
-      executablePath: `D:\\daily_soft\\Google\\Chrome\\Application\\chrome.exe`,
-      headless: false, // 调试时可保持可见
-      args: [
-        '--disable-blink-features=AutomationControlled',
-        '--window-size=1920,1080'
-      ]
-    });
-
-    const page = await browser.newPage();
-    // const result: any[] = [];
-
-    // 设置浏览器指纹
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    await page.evaluateOnNewDocument(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false });
-    });
-
-    // 优化资源拦截
-    await page.setRequestInterception(true);
-    page.on('request', (req) => {
-      if (req.resourceType() === 'document') {
-        req.continue();
-      } else {
-        req.abort();
-      }
-    });
-
-    // 获取分页按钮dom
-    const selector = `.section1-pagination`;
-    try {
-      await page.goto('https://www.knowyourself.cc/list?id=hunlianqinggan', {
-        waitUntil: 'domcontentloaded',
-        timeout: 30000
-      });
-      while (true) {
-        const nextPageBtn = await page.$(selector);
-        console.log(nextPageBtn);
-        if (!nextPageBtn) {
-          console.log('No more pages, stopping');
-          break;
-        }
-      }
-    } catch (error) {
-      console.log(error);
-    } finally {
-      await browser.close();
-    }
-  }
 }
 
-export default KnowyourselfCrawler;
+export default new KnowyourselfCrawler({
+  concurrency: 10,
+  timeout: 3000,
+  retryTimes: 3,
+  headers: {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36",
+  },
+  useProxy: false,
+});

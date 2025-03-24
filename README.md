@@ -73,3 +73,26 @@ Express, 提供API服务
 
 - 健康检查: Redis PUB/SUB广播心跳包，节点失联5分钟后触发告警
 - 熔断机制: 单个域名连续失败10次则暂停抓取。
+
+
+`
+curl 'https://tapi.knowyourself.cc/platform/getWebsiteArticleList?offset=240&limit=10&type=hunlianqinggan' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: zh-CN,zh;q=0.9,en;q=0.8' \
+  -H 'content-type: application/json;charset=utf-8' \
+  -H 'ky-token;' \
+  -H 'origin: https://www.knowyourself.cc' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://www.knowyourself.cc/' \
+  -H 'sec-ch-ua: "Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "Windows"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-site' \
+  -H 'user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36' \
+  -H 'x-appid: 16' \
+  -H 'x-sig: f7f299b417b101c252847e7840b1ea53' \
+  -H 'x-timestamp: 1742796478372' \
+  -H 'x-version: 1.0.0'
+`
