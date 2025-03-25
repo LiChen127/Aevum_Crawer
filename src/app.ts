@@ -37,6 +37,11 @@ app.get('/yxl/tags', async (req, res) => {
   res.json(tags);
 });
 
+app.get("/yxl/list", async (req, res) => {
+  const list = await yixinli.crawlPageList();
+  res.json(list);
+});
+
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
