@@ -50,18 +50,6 @@ class TaskService {
 
     await this.updateTaskStatus(taskId, 'completed');
   }
-
-  // async createPagesTask(url: string, priority: number = 0, isDynamic: boolean = false): Promise<Task> {
-  //   const tasks = await prisma.task.create({
-  //     data: {
-  //       url,
-  //       priority,
-  //       status: 'pending'
-  //     }
-  //   });
-  //   // await this.queueService.addw(tasks.id, url, isDynamic);
-  //   return tasks;
-  // }
 }
 
 export default new TaskService();

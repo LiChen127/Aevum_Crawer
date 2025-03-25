@@ -11,3 +11,4 @@ export interface CrawlerResult {
   content: any;
   timestamp: Date;
 }
+

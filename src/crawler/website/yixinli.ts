@@ -1,8 +1,19 @@
 import * as cheerio from 'cheerio';
 import puppeteer from 'puppeteer';
+import PQueue from 'p-queue';
+import { getRandomUserAgent, hideAutomation, randomDelay } from '../../utils/crawlerUtls.ts';
 
+
+type detail = {
+  title: string;
+  content: string;
+}
 
 class YixinliCrawler {
+  private handleQueue = new PQueue({
+    concurrency: 5,
+    timeout: 30000,
+  });
   // private url 
   public async crawAllTags(): Promise<any> {
     const url = "https://www.xinli001.com/info?source=pc-home";
@@ -70,61 +81,87 @@ class YixinliCrawler {
       headless: false,
     });
     const result: any[] = [];
-    const maxPages = 3;
-    let curPage = 1;
+    // const maxPages = 1;
+    const curPage = 1;
+
     try {
       const listPage = await browser.newPage();
-      const curUrl = baseUrl + `page=${curPage}`;
-      console.log(`Click to ${curPage}`);
-      await listPage.goto(curUrl, { waitUntil: 'domcontentloaded' });
-      await listPage.waitForSelector('.page-wrap');
-      const curListHtml = await listPage.content();
-      const links = await this.parsePageList(curListHtml);
-      await Promise.all(links.map(async (link: { link: string }) => {
-        // 慢点
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000));
-        console.log(`Click to ${link}`);
+
+      await listPage.setUserAgent(getRandomUserAgent());
+      await listPage.setJavaScriptEnabled(true);
+      await hideAutomation(browser, listPage);
+
+      const curListUrl = baseUrl + `page=${curPage}`;
+      await listPage.goto(curListUrl, { waitUntil: 'networkidle2' });
+
+      const linkItems = this.parsePageList(await listPage.content());
+      if (linkItems == null) {
+        console.log(`${curPage} page error`);
+        return;
+      }
+      const detailResult = await this.processDetailPages(browser, linkItems);
+      if (detailResult == null) {
+        console.log(`${curPage} page error`);
+        return;
+      }
+      console.log(detailResult);
+      result.push(...detailResult);
+      // let nextBtn = await listPage.$('.next');
+
+      // while (nextBtn !== null && curPage <= maxPages) {
+      //   console.log(`${curPage} page error`);
+      //   randomDelay(1000, 3000);
+      //   const newListUrl = baseUrl + `page=${curPage}`;
+      //   await listPage.goto(newListUrl, { waitUntil: 'networkidle2' });
+      //   const linkItems = this.parsePageList(await listPage.content());
+      //   if (!linkItems) {
+      //     console.log(`${curPage} page error`);
+      //     break;
+      //   }
+      //   const detail = await this.processDetailPages(browser, linkItems);
+      //   if (detail !== null) {
+      //     result.push(detail);
+      //   }
+      //   nextBtn = await listPage.$('.next');
+      //   curPage++;
+      // }
+    } catch (error) {
+      console.error("main list crawlering error: ", error);
+    } finally {
+      try {
+        await browser.close();
+        console.log('Crawler End');
+      } catch (error) {
+        console.log(error);
+      }
+    }
+    return result;
+  }
+
+  private async processDetailPages(browser: puppeteer.Browser, linkItems: { link: string }[]) {
+
+    let detail: detail;
+    const result: detail[] = [];
+    await this.handleQueue.addAll(linkItems.map(link => async () => {
+      try {
+        await randomDelay(500, 1500);
         const detailPage = await browser.newPage();
+        await hideAutomation(browser, detailPage);
         await detailPage.goto(link.link, {
           waitUntil: 'domcontentloaded',
         });
-        await detailPage.waitForSelector('.yxl-editor-article');
-        const detailHtml = await detailPage.content();
-        const detail = await this.parseDetail(detailHtml);
+        await detailPage.waitForSelector(".yxl-editor-article", { visible: true });
+
+        detail = await this.parseDetail(await detailPage.content());
         result.push({
           ...detail,
         });
         await detailPage.close();
-      }));
-      let nextPageBtn = await listPage.$('.next');
-      while (nextPageBtn != null && curPage < maxPages) {
-        // 随机延迟
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 1000));
-        console.log(`Click to ${curPage}`);
-        await nextPageBtn.click();
-        await listPage.waitForSelector('.page-wrap');
-        const nextListHtml = await listPage.content();
-        const nextLinks = await this.parsePageList(nextListHtml);
-        await Promise.all(nextLinks.map(async (link: { link: string }) => {
-          const detailPage = await browser.newPage();
-          await detailPage.goto(link.link, {
-            waitUntil: 'networkidle2',
-          });
-          await detailPage.waitForSelector('.yxl-editor-article');
-          const detailHtml = await detailPage.content();
-          const detail = await this.parseDetail(detailHtml);
-          result.push({
-            ...detail,
-          });
-        }));
-        nextPageBtn = await listPage.$('.next');
-        curPage++;
+        return detail;
+      } catch (error) {
+        console.log(error);
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      await browser.close();
-    }
+    }));
     return result;
   }
 
@@ -176,13 +213,20 @@ class YixinliCrawler {
   /**
    * 解析分页数据获取link
    */
-  private async parsePageList(html: string): Promise<any> {
+  private parsePageList(html: string): { link: string }[] | null {
     const $ = cheerio.load(html);
-    return $('#articleListM').find('.title').map((index, element) => {
-      return {
-        link: $(element).attr('href')
-      };
-    }).get();
+    const res = $('#articleListM').find('.title').map((index, element) => {
+      const href = $(element).attr('href');
+      if (element && href) {
+        return {
+          link: href
+        };
+      }
+    }).get().filter((item): item is { link: string } => item !== undefined && item.link !== undefined);
+    if (res.length === 0) {
+      return null;
+    }
+    return res;
   }
 
   /**
